@@ -1,0 +1,55 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "jiangsu"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[118.8, 31.5], [119.5, 31.8], [120.0, 32.5], [119.5, 33.2], [118.5, 33.5], [118.0, 32.8], [118.2, 32.0], [118.8, 31.5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "zhejiang"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[120.2, 29.8], [121.0, 30.2], [121.5, 30.8], [121.0, 31.2], [120.2, 31.0], [119.5, 30.5], [119.8, 30.0], [120.2, 29.8]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "manchuria"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[125.4, 43.3], [126.5, 43.8], [127.0, 44.5], [126.5, 45.2], [125.0, 45.5], [124.0, 44.8], [124.2, 44.0], [125.4, 43.3]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "jiangxi"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[115.9, 28.2], [116.5, 28.5], [117.0, 29.2], [116.5, 29.8], [115.5, 30.0], [115.0, 29.3], [115.2, 28.5], [115.9, 28.2]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "fujian"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[119.3, 25.6], [120.0, 26.0], [120.5, 26.7], [120.0, 27.2], [119.0, 27.0], [118.5, 26.3], [118.8, 25.8], [119.3, 25.6]]]
+      }
+    }
+  ]
+} 
