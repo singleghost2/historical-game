@@ -1,3 +1,4 @@
+import traceback
 import streamlit as st
 import json
 import os
@@ -80,6 +81,8 @@ def create_event_graph(events_data):
     except Exception as e:
         st.error(f"生成事件树时出错: {str(e)}")
         return None
+
+import pysnooper 
 
 def generate_events_from_text(text):
     """使用大模型根据文本生成事件树"""
@@ -205,13 +208,23 @@ def generate_events_from_text(text):
                 {"role": "user", "content": prompt}
             ],
             temperature=LLM_CONFIG["temperature"],
-            max_tokens=LLM_CONFIG["max_tokens"]
+            max_tokens=LLM_CONFIG["max_tokens"],
+            stream=True  # 启用流式输出
         )
         
+        # 逐步输出生成的内容
+        full_response = ""
+        output_placeholder = st.empty()  # 创建一个占位符
+        for chunk in response:
+            if chunk.choices[0].delta.content is not None:
+                chunk_message = chunk.choices[0].delta.content
+                full_response += chunk_message
+                output_placeholder.markdown(full_response)  # 更新占位符内容
+        
         # 解析生成的JSON
-        generated_events = json.loads(response.choices[0].message.content)
-        return generated_events
+        generated_events = json.loads(full_response)
     except Exception as e:
+        traceback.print_exc()
         st.error(f"生成事件树时出错: {str(e)}")
         return None
 
@@ -406,4 +419,4 @@ with col3:
         except Exception as e:
             st.error(f"生成事件树时出错: {str(e)}")
     else:
-        st.info("暂无事件数据，请添加事件。") 
+        st.info("暂无事件数据，请添加事件。")
