@@ -1,3 +1,4 @@
+import datetime
 import traceback
 import streamlit as st
 import json
@@ -84,99 +85,83 @@ def create_event_graph(events_data):
 
 import pysnooper 
 
+def fix_event_data(events_data):
+    """修复事件数据中缺失的字段"""
+    if not events_data or "events" not in events_data:
+        return events_data
+        
+    for event_id, event in events_data["events"].items():
+        # 确保事件有所有必需的字段
+        if "description" not in event:
+            event["description"] = ""
+        if "choices" not in event:
+            event["choices"] = []
+            
+        # 修复每个选项的字段
+        for choice in event["choices"]:
+            if "consequences" not in choice:
+                choice["consequences"] = {
+                    "military_power": 0,
+                    "political_power": 0,
+                    "economic_power": 0,
+                    "territories": {}
+                }
+            else:
+                # 确保consequences中有所有必需的字段
+                for key in ["military_power", "political_power", "economic_power"]:
+                    if key not in choice["consequences"]:
+                        choice["consequences"][key] = 0
+                if "territories" not in choice["consequences"]:
+                    choice["consequences"]["territories"] = {}
+    
+    return events_data
+
 def generate_events_from_text(text):
-    """使用大模型根据文本生成事件树"""
+    """使用大模型根据文本生成线性事件列表"""
     try:
         # 构建提示词
         prompt = f"""
-        请根据以下历史事件描述，生成一个事件树结构。每个事件应该包含：
+        请根据以下历史事件描述，生成一个线性的事件列表。每个事件应该包含：
         1. 事件ID（格式：event_X）
         2. 事件标题
-        3. 事件描述
-        4. 发生年份和月份
-        5. 1-2个选项，每个选项包含：
+        3. 发生年份和月份
+        4. 一个选项，包含：
            - 选项文本
-           - 军事、政治、经济影响
            - 后续事件ID
         
-        请以JSON格式输出，格式如下：
+        请以JSON格式输出，"name"为事件列表的名称，"events"为事件列表，"initial_event"为初始事件，格式如下：
         {{
+            "name": "民国史诗",
             "events": {{
                 "event_1": {{
                     "id": "event_1",
                     "title": "事件标题",
-                    "description": "事件描述",
                     "year": 1930,
                     "month": 1,
                     "choices": [
                         {{
                             "id": "choice_1",
                             "text": "选项文本",
-                            "consequences": {{
-                                "military_power": 10,
-                                "political_power": -5,
-                                "economic_power": 0,
-                                "territories": {{}}
-                            }},
                             "next_event": "event_2"
-                        }},
-                        {{
-                            "id": "choice_2",
-                            "text": "另一个选项文本",
-                            "consequences": {{
-                                "military_power": -5,
-                                "political_power": 10,
-                                "economic_power": 5,
-                                "territories": {{}}
-                            }},
-                            "next_event": "event_3"
                         }}
                     ]
                 }},
                 "event_2": {{
                     "id": "event_2",
                     "title": "后续事件标题",
-                    "description": "后续事件描述",
                     "year": 1930,
                     "month": 2,
                     "choices": [
                         {{
-                            "id": "choice_3",
+                            "id": "choice_2",
                             "text": "选项文本",
-                            "consequences": {{
-                                "military_power": 0,
-                                "political_power": 0,
-                                "economic_power": 0,
-                                "territories": {{}}
-                            }},
-                            "next_event": "event_4"
+                            "next_event": "event_3"
                         }}
                     ]
                 }},
                 "event_3": {{
                     "id": "event_3",
-                    "title": "另一个后续事件标题",
-                    "description": "另一个后续事件描述",
-                    "year": 1930,
-                    "month": 2,
-                    "choices": [
-                        {{
-                            "id": "choice_4",
-                            "text": "选项文本",
-                            "consequences": {{
-                                "military_power": 0,
-                                "political_power": 0,
-                                "economic_power": 0,
-                                "territories": {{}}
-                            }},
-                            "next_event": "event_4"
-                        }}
-                    ]
-                }},
-                "event_4": {{
-                    "id": "event_4",
                     "title": "最终事件标题",
-                    "description": "最终事件描述",
                     "year": 1930,
                     "month": 3,
                     "choices": []
@@ -187,14 +172,10 @@ def generate_events_from_text(text):
 
         注意事项：
         1. 每个事件都应该有唯一的ID
-        2. 选项的next_event必须指向已存在的事件ID
-        3. 事件之间应该形成合理的时间顺序
-        4. 不同选项可能导致不同的事件分支
-        5. 最终事件（没有后续事件的事件）的choices应该为空数组
-        6. 所有事件都应该通过选项连接起来，不能有孤立的事件
-        7. 军事、政治、经济影响的数值范围在-20到20之间
-        8. 事件的时间顺序要合理，后续事件的年月不能早于前导事件
-        9. 每个事件最多可以有3个选项
+        2. 每个事件只有一个选项
+        3. 最后一个事件的choices应该为空数组
+        4. 事件之间应该形成合理的时间顺序
+        5. 事件的时间顺序要合理，后续事件的年月不能早于前导事件
 
         历史事件描述：
         {text}
@@ -204,7 +185,7 @@ def generate_events_from_text(text):
         response = client.chat.completions.create(
             model=LLM_CONFIG["model"],
             messages=[
-                {"role": "system", "content": "你是一个历史事件分析专家，擅长将历史事件转化为结构化的事件树。你需要确保生成的事件树具有合理的时间顺序和因果关系。"},
+                {"role": "system", "content": "你是一个历史事件分析专家，擅长将历史事件转化为线性的事件序列。你需要确保事件具有合理的时间顺序。"},
                 {"role": "user", "content": prompt}
             ],
             temperature=LLM_CONFIG["temperature"],
@@ -221,16 +202,42 @@ def generate_events_from_text(text):
                 full_response += chunk_message
                 output_placeholder.markdown(full_response)  # 更新占位符内容
         
+        full_response = full_response.strip('```json')
+        full_response = full_response.rstrip('```') 
         # 解析生成的JSON
+        print(f"--------------- full response ---------------")
+        print(full_response)
+        print(f"--------------- full response ---------------")
         generated_events = json.loads(full_response)
+        # 修复生成的事件数据
+        generated_events = fix_event_data(generated_events)
+        return generated_events
     except Exception as e:
         traceback.print_exc()
         st.error(f"生成事件树时出错: {str(e)}")
         return None
 
+def fix_invalid_next_events(events_data):
+    """修复所有失效的next_event引用"""
+    if not events_data or "events" not in events_data:
+        return events_data
+        
+    valid_event_ids = set(events_data["events"].keys())
+    
+    # 遍历所有事件和选项
+    for event in events_data["events"].values():
+        for choice in event["choices"]:
+            # 如果next_event指向不存在的事件，将其设为None
+            if choice["next_event"] and choice["next_event"] not in valid_event_ids:
+                choice["next_event"] = None
+    
+    return events_data
+
 # 加载事件数据
 if 'events_data' not in st.session_state:
-    st.session_state.events_data = load_events()
+    st.session_state.events_data = fix_event_data(load_events())
+    # 修复所有失效的next_event引用
+    st.session_state.events_data = fix_invalid_next_events(st.session_state.events_data)
 
 # 确保所有选项都有完整的consequences结构
 for event in st.session_state.events_data["events"].values():
@@ -252,6 +259,27 @@ for event in st.session_state.events_data["events"].values():
 # 页面标题
 st.title("民国史诗 - 事件编辑器")
 
+# 添加事件树选择功能
+with st.expander("选择事件树", expanded=True):
+    # 获取events文件夹下的所有json文件
+    event_files = [f for f in os.listdir("events") if f.endswith(".json")]
+    if event_files:
+        selected_file = st.selectbox(
+            "选择事件树文件",
+            options=event_files,
+            format_func=lambda x: x.replace(".json", "")
+        )
+        if st.button("加载选中的事件树"):
+            with open(os.path.join("events", selected_file), 'r', encoding='utf-8') as f:
+                st.session_state.events_data = fix_event_data(json.load(f))
+                # 修复所有失效的next_event引用
+                st.session_state.events_data = fix_invalid_next_events(st.session_state.events_data)
+            save_events(st.session_state.events_data)
+            st.success(f"已加载事件树：{selected_file}")
+            st.rerun()
+    else:
+        st.info("events文件夹下暂无事件树文件")
+
 # 添加自动生成事件树的输入框和按钮
 with st.expander("自动生成事件树", expanded=False):
     input_text = st.text_area("请输入历史事件描述：", height=200)
@@ -260,6 +288,10 @@ with st.expander("自动生成事件树", expanded=False):
             with st.spinner("正在生成事件树..."):
                 generated_events = generate_events_from_text(input_text)
                 if generated_events:
+                    # 保存到文件中
+                    output_file_path = os.path.join("events", generated_events["name"] + "_" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S") + ".json")
+                    with open(output_file_path, 'w', encoding='utf-8') as f:
+                        json.dump(generated_events, f, ensure_ascii=False, indent=4)
                     st.session_state.events_data = generated_events
                     save_events(st.session_state.events_data)
                     st.success("事件树生成成功！")
@@ -277,8 +309,10 @@ with col1:
     # 添加新事件按钮
     if st.button("添加新事件"):
         new_event = create_new_event()
-        st.session_state.events_data["events"][f"new_event_{len(st.session_state.events_data['events'])}"] = new_event
+        new_id = f"new_event_{len(st.session_state.events_data['events'])}"
+        st.session_state.events_data["events"][new_id] = new_event
         save_events(st.session_state.events_data)
+        st.rerun()
     
     # 选择要编辑的事件
     selected_event = st.selectbox(
@@ -293,11 +327,13 @@ with col1:
     initial_event = st.selectbox(
         "选择初始事件",
         options=list(st.session_state.events_data["events"].keys()),
+        format_func=lambda x: st.session_state.events_data["events"][x]["title"] or x,
         index=list(st.session_state.events_data["events"].keys()).index(st.session_state.events_data["initial_event"]) if st.session_state.events_data["initial_event"] else 0
     )
     if initial_event != st.session_state.events_data["initial_event"]:
         st.session_state.events_data["initial_event"] = initial_event
         save_events(st.session_state.events_data)
+        st.rerun()
 
 # 中间列：事件编辑
 with col2:
@@ -309,7 +345,7 @@ with col2:
         new_id = st.text_input("事件ID", event["id"])
         new_title = st.text_input("事件标题", event["title"])
         new_description = st.text_area("事件描述", event["description"])
-        new_year = st.number_input("发生年份", min_value=1930, max_value=1940, value=event["year"])
+        new_year = st.number_input("发生年份", min_value=-9999, max_value=9999, value=event["year"])
         new_month = st.number_input("发生月份", min_value=1, max_value=12, value=event["month"])
         
         # 选项编辑
@@ -346,6 +382,7 @@ with col2:
             choice["next_event"] = st.selectbox(
                 f"后续事件###{i}",
                 options=["无"] + available_events,
+                format_func=lambda x: "无" if x == "无" else st.session_state.events_data["events"][x]["title"] or x,
                 index=0 if not choice["next_event"] else available_events.index(choice["next_event"]) + 1
             )
             if choice["next_event"] == "无":
@@ -381,12 +418,15 @@ with col2:
             
             save_events(st.session_state.events_data)
             st.success("事件已保存！")
+            st.rerun()
         
         # 删除事件按钮
         if st.button("删除事件"):
             del st.session_state.events_data["events"][selected_event]
             if st.session_state.events_data["initial_event"] == selected_event:
                 st.session_state.events_data["initial_event"] = None
+            # 修复所有失效的next_event引用
+            st.session_state.events_data = fix_invalid_next_events(st.session_state.events_data)
             save_events(st.session_state.events_data)
             st.rerun()
 
