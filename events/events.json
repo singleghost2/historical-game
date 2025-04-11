@@ -29,7 +29,8 @@
                     },
                     "next_event": "manchuria_incident"
                 }
-            ]
+            ],
+            "location": []
         },
         "manchuria_incident": {
             "id": "manchuria_incident",
@@ -46,7 +47,9 @@
                         "political_power": -10,
                         "economic_power": 0,
                         "territories": {
-                            "japanese": ["manchuria"]
+                            "japanese": [
+                                "manchuria"
+                            ]
                         }
                     },
                     "next_event": "xian_incident"
@@ -62,6 +65,9 @@
                     },
                     "next_event": "shanghai_battle"
                 }
+            ],
+            "location": [
+                "东北"
             ]
         },
         "xian_incident": {
@@ -93,7 +99,8 @@
                     },
                     "next_event": null
                 }
-            ]
+            ],
+            "location": []
         },
         "shanghai_battle": {
             "id": "shanghai_battle",
@@ -124,7 +131,8 @@
                     },
                     "next_event": "xian_incident"
                 }
-            ]
+            ],
+            "location": []
         },
         "qiqi_incideng": {
             "id": "qiqi_incideng",
@@ -172,6 +180,10 @@
                     },
                     "next_event": null
                 }
+            ],
+            "location": [
+                "北京",
+                "天津"
             ]
         }
     },

@@ -1,6 +1,7 @@
 import streamlit as st
 import sqlite3
 import json
+import os
 from datetime import datetime
 import pydeck as pdk
 import geopandas as gpd
@@ -9,16 +10,16 @@ import pandas as pd
 # 初始化会话状态
 if 'game_state' not in st.session_state:
     st.session_state.game_state = {
-        'year': 1930,
-        'month': 1,
         'military_power': 100,
         'political_power': 100,
         'economic_power': 100,
         'controlled_territories': {
-            'central_government': ['jiangsu', 'zhejiang', 'anhui', 'jiangxi', 'hubei', 'hunan', 'sichuan'],
-            'communist': ['jiangxi', 'fujian'],
+            'central_government': ['江苏', '浙江', '安徽', '江西', '湖北', '湖南', '四川'],
+            'communist': ['江西', '福建'],
             'japanese': []
-        }
+        },
+        'events': {},  # 添加events字段
+        'current_event_id': None  # 添加当前事件ID字段
     }
 
 # 省份数据
@@ -45,12 +46,12 @@ PROVINCES = {
     'taiwan': {'name': '台湾', 'center': [121.0, 23.5]}
 }
 
-# 加载中国省份地图数据
+# 加载中国省份地图数据， 后续还可以加载更多的数据
 @st.cache_data
 def load_province_boundaries():
     # 这里需要加载实际的地理数据文件
     # 使用 GeoJSON 格式的中国省份边界数据
-    gdf = gpd.read_file("china_provinces.geojson") #TODO, 使用实际的china_provinces.geojson
+    gdf = gpd.read_file("china_provinces.geojson") 
     return gdf
 
 def create_map_data():
@@ -59,19 +60,28 @@ def create_map_data():
         # 加载省份边界数据
         gdf = load_province_boundaries()
         
+        # 打印省份名称列表，用于调试
+        st.write("地图中的省份名称：")
+        st.write(gdf['name'].tolist())
+        
+        # 打印控制的地区列表，用于调试
+        st.write("控制的地区：")
+        for faction, territories in st.session_state.game_state['controlled_territories'].items():
+            st.write(f"{faction}: {territories}")
+        
         # 为每个省份添加颜色信息
         province_colors = []
         for _, row in gdf.iterrows():
-            province_id = row['name']  # 假设GeoJSON中的属性名为'name'
-            color = [100, 100, 100]  # 默认灰色
+            province_name = row['name']  # 假设GeoJSON中的属性名为'name'
+            color = [100, 100, 100, 140]  # 默认灰色（半透明）
             
             # 根据控制势力设置颜色
             for faction, territories in st.session_state.game_state['controlled_territories'].items():
-                if province_id in territories:
+                if province_name in territories:
                     if faction == 'central_government':
-                        color = [255, 0, 0, 140]  # 红色（半透明）
-                    elif faction == 'communist':
                         color = [0, 0, 255, 140]  # 蓝色（半透明）
+                    elif faction == 'communist':
+                        color = [255, 0, 0, 140]  # 红色（半透明）
                     elif faction == 'japanese':
                         color = [255, 255, 0, 140]  # 黄色（半透明）
                     break
@@ -81,77 +91,74 @@ def create_map_data():
         
         # 转换为pydeck可用的格式
         provinces_data = json.loads(gdf.to_json())
-        return provinces_data
+        
+        # 创建事件地点标记
+        event_locations = []
+        current_events = get_current_events()
+        if current_events:
+            for event in current_events:
+                for location in event.get('location', []):
+                    if location in PROVINCES:
+                        event_locations.append({
+                            'name': PROVINCES[location]['name'],
+                            'coordinates': PROVINCES[location]['center']
+                        })
+        
+        return provinces_data, event_locations
         
     except Exception as e:
         st.error(f"加载地图数据时出错: {str(e)}")
-        return None
+        return None, None
 
 # 历史事件数据
-HISTORICAL_EVENTS = {
-    "1930": {
-        "1": [
-            {
-                "title": "测试事件",
-                "description": "这是一个测试事件，用于验证事件系统是否正常工作。",
-                "choices": [
-                    {
-                        "text": "选择选项1",
-                        "consequences": {
-                            "military_power": +10,
-                            "political_power": -5,
-                            "economic_power": +5
-                        }
-                    },
-                    {
-                        "text": "选择选项2",
-                        "consequences": {
-                            "military_power": -5,
-                            "political_power": +10,
-                            "economic_power": -5
-                        }
-                    }
-                ]
-            }
-        ]
-    },
-    "1931": {
-        "9": [
-            {
-                "title": "九一八事变",
-                "description": "日本关东军发动了奉天事变，意图侵占东北...",
-                "choices": [
-                    {
-                        "text": "实行不抵抗政策",
-                        "consequences": {
-                            "military_power": -20,
-                            "political_power": -10,
-                            "territories": {
-                                "japanese": ["manchuria"]
-                            }
-                        }
-                    },
-                    {
-                        "text": "立即武力反击",
-                        "consequences": {
-                            "military_power": -30,
-                            "political_power": +10
-                        }
-                    }
-                ]
-            }
-        ]
-    }
-}
+HISTORICAL_EVENTS = {}
+
+def get_current_time():
+    """获取当前时间"""
+    if not st.session_state.game_state['current_event_id']:
+        return None, None
+        
+    current_event = st.session_state.game_state['events']['events'].get(st.session_state.game_state['current_event_id'])
+    if not current_event:
+        return None, None
+        
+    return current_event['year'], current_event['month']
+
+def load_event_tree(file_path):
+    """加载事件树文件"""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            event_data = json.load(f)
+            
+        # 根据initial_event设置当前事件
+        if 'initial_event' in event_data and 'events' in event_data:
+            st.session_state.game_state['current_event_id'] = event_data['initial_event']
+            
+        # 将事件数据保存到game_state中
+        st.session_state.game_state['events'] = event_data
+            
+        return event_data
+    except Exception as e:
+        st.error(f"加载事件树文件时出错: {str(e)}")
+        return None
 
 def get_current_events():
     """获取当前时间点的事件"""
-    year = str(st.session_state.game_state['year'])
-    month = str(st.session_state.game_state['month'])
-    
-    if year in HISTORICAL_EVENTS and month in HISTORICAL_EVENTS[year]:
-        return HISTORICAL_EVENTS[year][month]
-    return []
+    # 如果没有当前事件ID，返回空列表
+    if not st.session_state.game_state['current_event_id']:
+        return []
+        
+    # 从事件树中获取当前事件
+    current_event = st.session_state.game_state['events']['events'].get(st.session_state.game_state['current_event_id'])
+    if not current_event:
+        return []
+        
+    return [{
+        'title': current_event['title'],
+        'description': current_event['description'],
+        'location': current_event.get('location', []),
+        'choices': current_event['choices']
+    }]
 
 def process_choice(choice):
     """处理玩家的选择"""
@@ -166,17 +173,32 @@ def process_choice(choice):
         elif key in st.session_state.game_state:
             st.session_state.game_state[key] += value
     
-    # 推进时间
-    st.session_state.game_state['month'] += 1
-    if st.session_state.game_state['month'] > 12:
-        st.session_state.game_state['month'] = 1
-        st.session_state.game_state['year'] += 1
+    # 如果选项中有next_event，直接跳转到该事件
+    if 'next_event' in choice and choice['next_event']:
+        st.session_state.game_state['current_event_id'] = choice['next_event']
+    else:
+        # 如果没有下一个事件，查找下一个最近的事件
+        next_event = None
+        min_time_diff = float('inf')
+        current_year, current_month = get_current_time()
+        
+        for event_id, event in st.session_state.game_state['events']['events'].items():
+            event_time = event['year'] * 12 + event['month']
+            current_time = current_year * 12 + current_month
+            time_diff = event_time - current_time
+            
+            if time_diff > 0 and time_diff < min_time_diff:
+                min_time_diff = time_diff
+                next_event = event_id
+        
+        if next_event:
+            st.session_state.game_state['current_event_id'] = next_event
+        else:
+            st.session_state.game_state['current_event_id'] = None
 
 def reset_game():
     """重置游戏状态"""
     st.session_state.game_state = {
-        'year': 1930,
-        'month': 1,
         'military_power': 100,
         'political_power': 100,
         'economic_power': 100,
@@ -184,11 +206,36 @@ def reset_game():
             'central_government': ['jiangsu', 'zhejiang', 'anhui', 'jiangxi', 'hubei', 'hunan', 'sichuan'],
             'communist': ['jiangxi', 'fujian'],
             'japanese': []
-        }
+        },
+        'events': {},  # 添加events字段
+        'current_event_id': None  # 添加当前事件ID字段
     }
 
 # 设置页面标题
 st.title("民国史诗 - 历史策略游戏")
+
+# 创建事件树选择区域
+st.sidebar.title("事件树选择")
+
+# 获取events文件夹中的所有json文件
+event_files = [f for f in os.listdir("events") if f.endswith(".json")]
+
+if event_files:
+    selected_file = st.sidebar.selectbox(
+        "选择事件树",
+        options=event_files,
+        format_func=lambda x: x.replace(".json", "")
+    )
+    
+    if st.sidebar.button("加载事件树"):
+        file_path = os.path.join("events", selected_file)
+        loaded_events = load_event_tree(file_path)
+        if loaded_events:
+            st.session_state.game_state['events'] = loaded_events
+            st.sidebar.success(f"已加载事件树：{selected_file}")
+            st.rerun()
+else:
+    st.sidebar.info("events文件夹下暂无事件树文件")
 
 # 创建两列布局
 col1, col2 = st.columns([2, 1])
@@ -198,7 +245,7 @@ with col1:
     st.subheader("中国地图")
     
     # 创建地图数据
-    map_data = create_map_data()
+    map_data, event_locations = create_map_data()
     
     if map_data:
         # 创建地图层
@@ -211,8 +258,24 @@ with col1:
             pickable=True,
             filled=True,
             extruded=False,
-            wireframe=True
+            wireframe=False,
+            opacity=0.8
         )
+        
+        # 创建事件地点标记层
+        if event_locations:
+            marker_layer = pdk.Layer(
+                'ScatterplotLayer',
+                data=event_locations,
+                get_position='coordinates',
+                get_fill_color=[255, 0, 0],  # 红色标记
+                get_radius=100000,  # 标记大小
+                pickable=True,
+                opacity=0.8
+            )
+            layers = [layer, marker_layer]
+        else:
+            layers = [layer]
         
         # 设置地图视图
         view_state = pdk.ViewState(
@@ -225,7 +288,7 @@ with col1:
         
         # 渲染地图
         st.pydeck_chart(pdk.Deck(
-            layers=[layer],
+            layers=layers,
             initial_view_state=view_state,
             tooltip={
                 'html': '<b>省份:</b> {name}',
@@ -241,7 +304,11 @@ with col1:
 with col2:
     # 显示游戏状态
     st.subheader("游戏状态")
-    st.write(f"年份：{st.session_state.game_state['year']}年{st.session_state.game_state['month']}月")
+    current_year, current_month = get_current_time()
+    if current_year and current_month:
+        st.write(f"年份：{current_year}年{current_month}月")
+    else:
+        st.write("当前没有事件")
     st.write(f"军事力量：{st.session_state.game_state['military_power']}")
     st.write(f"政治影响：{st.session_state.game_state['political_power']}")
     st.write(f"经济实力：{st.session_state.game_state['economic_power']}")
@@ -255,7 +322,7 @@ with col2:
             st.write("共产党控制：")
         elif faction == 'japanese':
             st.write("日本控制：")
-        st.write(", ".join([PROVINCES[t]['name'] for t in territories]))
+        st.write(", ".join(territories))
     
     # 重置按钮
     if st.button("重置游戏"):

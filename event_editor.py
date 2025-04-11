@@ -7,6 +7,20 @@ import graphviz
 from openai import OpenAI
 from config import LLM_CONFIG
 
+# 省份数据
+PROVINCES = {
+    'beijing': '北京',
+    'shanghai': '上海',
+    'guangzhou': '广州',
+    'nanjing': '南京',
+    'wuhan': '武汉',
+    'chongqing': '重庆',
+    'xian': '西安',
+    'tianjin': '天津',
+    'shenyang': '沈阳',
+    'chengdu': '成都'
+}
+
 # 设置页面为宽屏模式
 st.set_page_config(layout="wide")
 
@@ -37,6 +51,7 @@ def create_new_event():
         "description": "",
         "year": 1930,
         "month": 1,
+        "location": [],  # 添加地点列表
         "choices": []
     }
 
@@ -96,6 +111,8 @@ def fix_event_data(events_data):
             event["description"] = ""
         if "choices" not in event:
             event["choices"] = []
+        if "location" not in event:  # 添加 location 字段检查
+            event["location"] = []
             
         # 修复每个选项的字段
         for choice in event["choices"]:
@@ -125,6 +142,7 @@ def generate_events_from_text(text):
         1. 事件ID（格式：event_X）
         2. 事件标题
         3. 发生年份和月份
+        4. 发生地点列表
         4. 一个选项，包含：
            - 选项文本
            - 后续事件ID
@@ -138,6 +156,7 @@ def generate_events_from_text(text):
                     "title": "事件标题",
                     "year": 1930,
                     "month": 1,
+                    "location": ["beijing", "shanghai"],
                     "choices": [
                         {{
                             "id": "choice_1",
@@ -338,7 +357,11 @@ with col1:
 # 中间列：事件编辑
 with col2:
     if selected_event:
-        st.subheader("事件编辑")
+        # 创建标题和保存按钮的列布局
+        title_col, save_col = st.columns([3, 1])
+        with title_col:
+            st.subheader("事件编辑")
+        
         event = st.session_state.events_data["events"][selected_event]
         
         # 基本信息编辑
@@ -347,6 +370,36 @@ with col2:
         new_description = st.text_area("事件描述", event["description"])
         new_year = st.number_input("发生年份", min_value=-9999, max_value=9999, value=event["year"])
         new_month = st.number_input("发生月份", min_value=1, max_value=12, value=event["month"])
+        
+        # 添加地点选择
+        st.write("事件发生地点")
+        location_input = st.text_input(
+            "输入地点（多个地点用逗号分隔）",
+            value=", ".join(event.get("location", [])),
+            help="例如：北京, 上海, 广州"
+        )
+        selected_locations = [loc.strip() for loc in location_input.replace("，", ",").split(",") if loc.strip()]
+        
+        with save_col:
+            if st.button("保存事件", key="save_event_button"):
+                # 如果ID发生变化，需要重新创建事件
+                if new_id != event["id"] and new_id:
+                    st.session_state.events_data["events"][new_id] = st.session_state.events_data["events"].pop(selected_event)
+                    selected_event = new_id
+                
+                event = st.session_state.events_data["events"][selected_event]
+                event.update({
+                    "id": new_id,
+                    "title": new_title,
+                    "description": new_description,
+                    "year": new_year,
+                    "month": new_month,
+                    "location": selected_locations
+                })
+                
+                save_events(st.session_state.events_data)
+                st.success("事件已保存！")
+                st.rerun()
         
         # 选项编辑
         st.subheader("选项编辑")
@@ -398,26 +451,6 @@ with col2:
         if st.button("添加新选项"):
             event["choices"].append(create_new_choice())
             save_events(st.session_state.events_data)
-            st.rerun()
-        
-        # 更新事件数据
-        if st.button("保存事件"):
-            # 如果ID发生变化，需要重新创建事件
-            if new_id != event["id"] and new_id:
-                st.session_state.events_data["events"][new_id] = st.session_state.events_data["events"].pop(selected_event)
-                selected_event = new_id
-            
-            event = st.session_state.events_data["events"][selected_event]
-            event.update({
-                "id": new_id,
-                "title": new_title,
-                "description": new_description,
-                "year": new_year,
-                "month": new_month
-            })
-            
-            save_events(st.session_state.events_data)
-            st.success("事件已保存！")
             st.rerun()
         
         # 删除事件按钮
