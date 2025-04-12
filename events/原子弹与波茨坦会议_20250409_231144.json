@@ -1,0 +1,65 @@
+{
+    "name": "原子弹与波茨坦会议",
+    "events": {
+        "event_1": {
+            "id": "event_1",
+            "title": "广岛原子弹爆炸",
+            "year": 1945,
+            "month": 8,
+            "choices": [
+                {
+                    "id": "choice_1",
+                    "text": "美国继续对日本施压",
+                    "next_event": "event_2"
+                }
+            ]
+        },
+        "event_2": {
+            "id": "event_2",
+            "title": "长崎原子弹爆炸",
+            "year": 1945,
+            "month": 8,
+            "choices": [
+                {
+                    "id": "choice_2",
+                    "text": "苏联开始关注原子弹的影响",
+                    "next_event": "event_3"
+                }
+            ]
+        },
+        "event_3": {
+            "id": "event_3",
+            "title": "苏联对原子弹的反应",
+            "year": 1945,
+            "month": 8,
+            "choices": [
+                {
+                    "id": "choice_3",
+                    "text": "斯大林命令华西列夫斯基开始进攻",
+                    "next_event": "event_4"
+                }
+            ]
+        },
+        "event_4": {
+            "id": "event_4",
+            "title": "波茨坦会议开始",
+            "year": 1945,
+            "month": 7,
+            "choices": [
+                {
+                    "id": "choice_4",
+                    "text": "杜鲁门与斯大林无法达成一致",
+                    "next_event": "event_5"
+                }
+            ]
+        },
+        "event_5": {
+            "id": "event_5",
+            "title": "波茨坦会议结束",
+            "year": 1945,
+            "month": 8,
+            "choices": []
+        }
+    },
+    "initial_event": "event_1"
+}
