@@ -1,0 +1,191 @@
+{
+    "events": {
+        "test_event_1": {
+            "id": "test_event_1",
+            "title": "测试事件",
+            "description": "这是一个测试事件，用于验证事件系统是否正常工作。",
+            "year": 1930,
+            "month": 1,
+            "choices": [
+                {
+                    "id": "choice_1",
+                    "text": "选择选项1",
+                    "consequences": {
+                        "military_power": 10,
+                        "political_power": -5,
+                        "economic_power": 5,
+                        "territories": {}
+                    },
+                    "next_event": "manchuria_incident"
+                },
+                {
+                    "id": "choice_2",
+                    "text": "选择选项2",
+                    "consequences": {
+                        "military_power": -5,
+                        "political_power": 10,
+                        "economic_power": -5,
+                        "territories": {}
+                    },
+                    "next_event": "manchuria_incident"
+                }
+            ],
+            "location": []
+        },
+        "manchuria_incident": {
+            "id": "manchuria_incident",
+            "title": "九一八事变",
+            "description": "日本关东军发动了奉天事变，意图侵占东北...",
+            "year": 1931,
+            "month": 9,
+            "choices": [
+                {
+                    "id": "no_resistance",
+                    "text": "实行不抵抗政策",
+                    "consequences": {
+                        "military_power": -20,
+                        "political_power": -10,
+                        "economic_power": 0,
+                        "territories": {
+                            "japanese": [
+                                "manchuria"
+                            ]
+                        }
+                    },
+                    "next_event": "xian_incident"
+                },
+                {
+                    "id": "fight_back",
+                    "text": "立即武力反击",
+                    "consequences": {
+                        "military_power": -30,
+                        "political_power": 10,
+                        "economic_power": 0,
+                        "territories": {}
+                    },
+                    "next_event": "shanghai_battle"
+                }
+            ],
+            "location": [
+                "东北"
+            ]
+        },
+        "xian_incident": {
+            "id": "xian_incident",
+            "title": "西安事变",
+            "description": "张学良、杨虎城发动兵谏，扣留蒋介石...",
+            "year": 1936,
+            "month": 12,
+            "choices": [
+                {
+                    "id": "accept_united_front",
+                    "text": "接受调停，同意抗日",
+                    "consequences": {
+                        "military_power": 20,
+                        "political_power": 30,
+                        "economic_power": -10,
+                        "territories": {}
+                    },
+                    "next_event": null
+                },
+                {
+                    "id": "reject_united_front",
+                    "text": "拒绝调停，继续剿共",
+                    "consequences": {
+                        "military_power": -10,
+                        "political_power": -20,
+                        "economic_power": 10,
+                        "territories": {}
+                    },
+                    "next_event": null
+                }
+            ],
+            "location": []
+        },
+        "shanghai_battle": {
+            "id": "shanghai_battle",
+            "title": "一·二八淞沪抗战",
+            "description": "日军进攻上海，第十九路军奋起抵抗...",
+            "year": 1932,
+            "month": 1,
+            "choices": [
+                {
+                    "id": "full_resistance",
+                    "text": "全力抵抗",
+                    "consequences": {
+                        "military_power": -20,
+                        "political_power": 30,
+                        "economic_power": -20,
+                        "territories": {}
+                    },
+                    "next_event": "xian_incident"
+                },
+                {
+                    "id": "negotiate",
+                    "text": "谈判停战",
+                    "consequences": {
+                        "military_power": -5,
+                        "political_power": -10,
+                        "economic_power": -5,
+                        "territories": {}
+                    },
+                    "next_event": "xian_incident"
+                }
+            ],
+            "location": []
+        },
+        "qiqi_incideng": {
+            "id": "qiqi_incideng",
+            "title": "七七事变",
+            "description": "日本以士兵失踪为由，发动了七七事变",
+            "year": 1937,
+            "month": 7,
+            "prerequisites": {
+                "year_range": [
+                    1930,
+                    1940
+                ],
+                "month_range": [
+                    1,
+                    12
+                ],
+                "required_territories": [],
+                "required_powers": {
+                    "military_power": 0,
+                    "political_power": 0,
+                    "economic_power": 0
+                },
+                "previous_choices": []
+            },
+            "choices": [
+                {
+                    "id": "qiqi_incideng__no_residence",
+                    "text": "继续不抵抗",
+                    "consequences": {
+                        "military_power": -10,
+                        "political_power": -20,
+                        "economic_power": -20,
+                        "territories": {}
+                    },
+                    "next_event": null
+                },
+                {
+                    "id": "qiqi_incideng__111",
+                    "text": "开始全面抗战",
+                    "consequences": {
+                        "military_power": -5,
+                        "political_power": 10,
+                        "economic_power": 0,
+                        "territories": {}
+                    },
+                    "next_event": null
+                }
+            ],
+            "location": [
+                "北京",
+                "天津"
+            ]
+        }
+    },
+    "initial_event": "test_event_1"
+}
